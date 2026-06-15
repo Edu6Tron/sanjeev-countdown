@@ -10,6 +10,7 @@ interface TimeLeft {
   minutes: number;
   seconds: number;
   diff: number;
+  status: 'pre' | 'active' | 'done';
 }
 
 // Global window extension for the custom storage API
@@ -24,12 +25,24 @@ declare global {
 
 const START = new Date("2026-06-16T00:00:00+05:30");
 const END   = new Date("2031-06-16T00:00:00+05:30");
-const TOTAL_MS = END.getTime() - START.getTime();
 
-function getTimeLeft(): TimeLeft | null {
+function getTimeLeft(): TimeLeft {
   const now = new Date();
-  const diff = END.getTime() - now.getTime();
-  if (diff <= 0) return null;
+  let target = END;
+  let status: 'pre' | 'active' | 'done' = 'active';
+
+  if (now < START) {
+    target = START;
+    status = 'pre';
+  } else if (now >= END) {
+    status = 'done';
+  }
+
+  const diff = target.getTime() - now.getTime();
+  
+  if (status === 'done') {
+    return { years: 0, months: 0, days: 0, hours: 0, minutes: 0, seconds: 0, diff: 0, status: 'done' };
+  }
 
   let remaining = diff;
   const msInYear = 365.25 * 24 * 3600 * 1000;
@@ -53,7 +66,7 @@ function getTimeLeft(): TimeLeft | null {
   
   const seconds = Math.floor(remaining / 1000);
 
-  return { years, months, days, hours, minutes, seconds, diff };
+  return { years, months, days, hours, minutes, seconds, diff, status };
 }
 
 function pad(n: number): string { return String(n).padStart(2, "0"); }
@@ -61,7 +74,7 @@ function pad(n: number): string { return String(n).padStart(2, "0"); }
 const STORAGE_KEY = "sanjeev-notes-v1";
 
 export default function App() {
-  const [time, setTime]         = useState<TimeLeft | null>(getTimeLeft());
+  const [time, setTime]         = useState<TimeLeft>(getTimeLeft());
   const [note, setNote]         = useState<string>("");
   const [saved, setSaved]       = useState<boolean>(false);
   const [loading, setLoading]   = useState<boolean>(true);
@@ -121,9 +134,11 @@ export default function App() {
     persistSave(note, titleText);
   };
 
-  const progress = time ? Math.max(0, Math.min(100, ((Date.now() - START.getTime()) / TOTAL_MS) * 100)) : 100;
+  const totalDuration = END.getTime() - START.getTime();
+  const elapsed = Date.now() - START.getTime();
+  const progress = time.status === 'pre' ? 0 : time.status === 'done' ? 100 : Math.max(0, Math.min(100, (elapsed / totalDuration) * 100));
 
-  if (!time) {
+  if (time.status === 'done') {
     return (
       <div style={styles.root}>
         <div style={styles.doneBox}>
@@ -135,7 +150,7 @@ export default function App() {
     );
   }
 
-  const { years, months, days, hours, minutes, seconds } = time;
+  const { years, months, days, hours, minutes, seconds, status } = time;
 
   return (
     <div style={styles.root}>
@@ -164,7 +179,7 @@ export default function App() {
           )}
         </div>
 
-        <p style={styles.heroSub}>you have</p>
+        <p style={styles.heroSub}>{status === 'pre' ? 'journey begins in' : 'you have'}</p>
 
         {/* COUNTDOWN BLOCKS */}
         <div style={styles.countdownGrid}>
@@ -183,7 +198,11 @@ export default function App() {
           ))}
         </div>
 
-        <p style={styles.heroEnd}>left to become who you're meant to be.</p>
+        <p style={styles.heroEnd}>
+          {status === 'pre' 
+            ? "until your transformation officially starts." 
+            : "left to become who you're meant to be."}
+        </p>
 
         {/* PROGRESS BAR */}
         <div style={styles.progressWrap}>
@@ -192,7 +211,7 @@ export default function App() {
           </div>
           <div style={styles.progressLabels}>
             <span style={styles.progressDate}>Jun 16, 2026</span>
-            <span style={styles.progressPct}>{progress.toFixed(2)}% elapsed</span>
+            <span style={styles.progressPct}>{status === 'pre' ? 'Not started yet' : `${progress.toFixed(2)}% elapsed`}</span>
             <span style={styles.progressDate}>Jun 16, 2031</span>
           </div>
         </div>
@@ -484,4 +503,4 @@ const styles: { [key: string]: CSSProperties } = {
   },
   doneSub: { color: "#6b7280", fontSize: "1.1rem" },
 };
-  
+            
