@@ -10,6 +10,10 @@ alter table public.user_notes enable row level security;
 revoke all on public.user_notes from anon;
 grant select, insert, update on public.user_notes to authenticated;
 
+drop policy if exists "Users can read their own notes" on public.user_notes;
+drop policy if exists "Users can create their own notes" on public.user_notes;
+drop policy if exists "Users can update their own notes" on public.user_notes;
+
 create policy "Users can read their own notes"
 on public.user_notes
 for select
