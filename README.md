@@ -12,11 +12,13 @@ A personal five-year countdown with a private notes area.
 
 ## Local development
 
-1. Install dependencies.
-2. Create `.env.local` with `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_PUBLISHABLE_KEY` (or `SUPABASE_ANON_KEY`). The supported `NEXT_PUBLIC_*` variants also work.
+1. Install dependencies with `npm install`.
+2. Create `.env.local` with:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`)
 3. Run `npm run dev`.
 
-Never expose a Supabase service-role or secret key through a `VITE_*` or `NEXT_PUBLIC_*` variable. The browser app must use only the publishable/anon key.
+The browser app must use only the Supabase publishable/anon key. Never expose a service-role or secret key through a `VITE_*` variable.
 
 ## Notes database
 
@@ -32,4 +34,4 @@ In Supabase Authentication settings, allow the production site URL and any previ
 
 ## Deployment
 
-The `main` branch is connected to Vercel for production deployments. Preview deployments need their own Supabase URL and publishable key environment variables if private notes are to be tested there.
+The `main` branch is connected to Vercel for production deployments. Preview deployments need their own `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (or anon-key fallback) environment variables if private notes are to be tested there.
