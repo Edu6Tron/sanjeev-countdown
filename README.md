@@ -1,21 +1,35 @@
-# React + TypeScript + Vite
+# Sanjeev — Five Year Countdown
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal five-year countdown with a private notes area.
 
-While this project uses React, Vite supports many popular JS frameworks. [See all the supported frameworks](https://vitejs.dev/guide/#scaffolding-your-first-vite-project).
+## Stack
 
-## Deploy Your Own
+- React 18 + TypeScript
+- Vite 5
+- Supabase Auth (email magic links)
+- Supabase Postgres with Row Level Security
+- Vercel
 
-Deploy your own Vite project with Vercel.
+## Local development
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/vite-react&template=vite-react)
+1. Install dependencies.
+2. Create `.env.local` with `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) and `SUPABASE_PUBLISHABLE_KEY` (or `SUPABASE_ANON_KEY`). The supported `NEXT_PUBLIC_*` variants also work.
+3. Run `npm run dev`.
 
-_Live Example: https://vite-react-example.vercel.app_
+Never expose a Supabase service-role or secret key through a `VITE_*` or `NEXT_PUBLIC_*` variable. The browser app must use only the publishable/anon key.
 
-### Deploying From Your Terminal
+## Notes database
 
-You can deploy your new Vite project with a single command from your terminal using [Vercel CLI](https://vercel.com/download):
+Apply the SQL migration in `supabase/migrations` to the Supabase project. It creates `public.user_notes` and restricts each authenticated user to their own row with Row Level Security.
 
-```shell
-$ vercel
-```
+In Supabase Authentication settings, allow the production site URL and any preview URLs that should be able to complete email magic-link sign-in.
+
+## Quality checks
+
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+
+## Deployment
+
+The `main` branch is connected to Vercel for production deployments. Preview deployments need their own Supabase URL and publishable key environment variables if private notes are to be tested there.

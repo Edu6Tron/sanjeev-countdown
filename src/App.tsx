@@ -46,20 +46,38 @@ function getTimeLeft(): TimeLeft {
     };
   }
 
-  let remaining = diff;
-  const msInYear = 365.25 * 24 * 60 * 60 * 1000;
-  const msInMonth = 30.4375 * 24 * 60 * 60 * 1000;
-  const msInDay = 24 * 60 * 60 * 1000;
-  const msInHour = 60 * 60 * 1000;
+  // Count calendar years, months and days instead of using average durations.
+  let cursor = new Date(now);
+  let years = 0;
+  while (true) {
+    const candidate = new Date(cursor);
+    candidate.setFullYear(candidate.getFullYear() + 1);
+    if (candidate > target) break;
+    cursor = candidate;
+    years += 1;
+  }
 
-  const years = Math.floor(remaining / msInYear);
-  remaining -= years * msInYear;
-  const months = Math.floor(remaining / msInMonth);
-  remaining -= months * msInMonth;
-  const days = Math.floor(remaining / msInDay);
-  remaining -= days * msInDay;
-  const hours = Math.floor(remaining / msInHour);
-  remaining -= hours * msInHour;
+  let months = 0;
+  while (true) {
+    const candidate = new Date(cursor);
+    candidate.setMonth(candidate.getMonth() + 1);
+    if (candidate > target) break;
+    cursor = candidate;
+    months += 1;
+  }
+
+  let days = 0;
+  while (true) {
+    const candidate = new Date(cursor);
+    candidate.setDate(candidate.getDate() + 1);
+    if (candidate > target) break;
+    cursor = candidate;
+    days += 1;
+  }
+
+  let remaining = target.getTime() - cursor.getTime();
+  const hours = Math.floor(remaining / 3600000);
+  remaining -= hours * 3600000;
   const minutes = Math.floor(remaining / 60000);
   remaining -= minutes * 60000;
   const seconds = Math.floor(remaining / 1000);
@@ -85,6 +103,8 @@ export default function App() {
   const [sendingLink, setSendingLink] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const saveVersion = useRef(0);
 
   useEffect(() => {
     const id = window.setInterval(() => setTime(getTimeLeft()), 1000);
@@ -120,6 +140,7 @@ export default function App() {
   useEffect(() => {
     const client = supabase;
 
+    saveVersion.current += 1;
     if (!client || !session) {
       setNote("");
       setTitleText("Sanjeev");
@@ -178,25 +199,37 @@ export default function App() {
         return;
       }
 
+      const version = ++saveVersion.current;
       setSaveState("saving");
-      const { error } = await client.from("user_notes").upsert(
-        {
-          user_id: session.user.id,
-          note: nextNote,
-          title: nextTitle.trim() || "Sanjeev",
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      );
 
-      if (error) {
-        setSaveState("error");
-        setAuthError(error.message);
-        return;
-      }
+      // Serialize writes so an older request cannot finish after a newer one
+      // and overwrite the latest note/title snapshot.
+      saveQueue.current = saveQueue.current.catch(() => undefined).then(async () => {
+        const { error } = await client.from("user_notes").upsert(
+          {
+            user_id: session.user.id,
+            note: nextNote,
+            title: nextTitle.trim() || "Sanjeev",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
 
-      setSaveState("saved");
-      window.setTimeout(() => setSaveState("idle"), 2000);
+        if (version !== saveVersion.current) return;
+        if (error) {
+          setSaveState("error");
+          setAuthError(error.message);
+          return;
+        }
+
+        setAuthError("");
+        setSaveState("saved");
+        window.setTimeout(() => {
+          if (version === saveVersion.current) setSaveState("idle");
+        }, 2000);
+      });
+
+      await saveQueue.current;
     },
     [session],
   );
@@ -217,6 +250,10 @@ export default function App() {
   const handleTitleSave = () => {
     setEditTitle(false);
 
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
     if (session) {
       void persistSave(note, titleText);
     }
@@ -449,7 +486,9 @@ export default function App() {
 
 const styles: Record<string, CSSProperties> = {
   root: {
+    width: "100%",
     minHeight: "100vh",
+    boxSizing: "border-box",
     background: "linear-gradient(135deg, #0a0a0f 0%, #0d0d1a 50%, #0a0f0a 100%)",
     fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
     color: "#e8e8f0",
@@ -477,7 +516,9 @@ const styles: Record<string, CSSProperties> = {
     pointerEvents: "none",
   },
   main: {
+    width: "100%",
     maxWidth: "900px",
+    boxSizing: "border-box",
     margin: "0 auto",
     padding: "60px 24px 40px",
     position: "relative",
